@@ -8,7 +8,17 @@ export const dynamic = 'force-dynamic';
 export async function GET() {
   try {
     const jobs = await db
-      .select()
+      .select({
+        id: audioJobs.id,
+        originalFilename: audioJobs.originalFilename,
+        originalFileSize: audioJobs.originalFileSize,
+        processedFilename: audioJobs.processedFilename,
+        processedFileSize: audioJobs.processedFileSize,
+        status: audioJobs.status,
+        errorMessage: audioJobs.errorMessage,
+        createdAt: audioJobs.createdAt,
+        completedAt: audioJobs.completedAt,
+      })
       .from(audioJobs)
       .orderBy(desc(audioJobs.createdAt))
       .limit(50);
