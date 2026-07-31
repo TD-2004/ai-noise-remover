@@ -12,7 +12,20 @@ export async function GET(
   try {
     const { jobId } = await params;
 
-    const [job] = await db.select().from(audioJobs).where(eq(audioJobs.id, jobId));
+    const [job] = await db
+      .select({
+        id: audioJobs.id,
+        originalFilename: audioJobs.originalFilename,
+        originalFileSize: audioJobs.originalFileSize,
+        processedFilename: audioJobs.processedFilename,
+        processedFileSize: audioJobs.processedFileSize,
+        status: audioJobs.status,
+        errorMessage: audioJobs.errorMessage,
+        createdAt: audioJobs.createdAt,
+        completedAt: audioJobs.completedAt,
+      })
+      .from(audioJobs)
+      .where(eq(audioJobs.id, jobId));
 
     if (!job) {
       return NextResponse.json(
@@ -21,17 +34,7 @@ export async function GET(
       );
     }
 
-    return NextResponse.json({
-      id: job.id,
-      status: job.status,
-      originalFilename: job.originalFilename,
-      originalFileSize: job.originalFileSize,
-      processedFilename: job.processedFilename,
-      processedFileSize: job.processedFileSize,
-      errorMessage: job.errorMessage,
-      createdAt: job.createdAt,
-      completedAt: job.completedAt,
-    });
+    return NextResponse.json(job);
 
   } catch (error) {
     console.error('Status error:', error);
