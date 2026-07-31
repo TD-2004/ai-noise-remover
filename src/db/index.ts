@@ -11,10 +11,16 @@ const globalForDb = globalThis as typeof globalThis & {
   __arenaNextJsPostgresqlPool?: Pool;
 };
 
+// Enable SSL for production databases (Neon, Supabase, Railway)
+const needsSSL = databaseUrl.includes("sslmode=require") || databaseUrl.includes("neon.tech") || databaseUrl.includes("supabase.co");
+
 export const pool =
   globalForDb.__arenaNextJsPostgresqlPool ??
   new Pool({
     connectionString: databaseUrl,
+    ...(needsSSL ? { ssl: { rejectUnauthorized: false } } : {}),
+    max: 5,
+    connectionTimeoutMillis: 10000,
   });
 
 if (process.env.NODE_ENV !== "production") {
