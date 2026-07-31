@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { readFile } from 'fs/promises';
-import { existsSync } from 'fs';
-import path from 'path';
+import { db } from '@/db';
+import { audioJobs } from '@/db/schema';
+import { eq } from 'drizzle-orm';
 
 export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
 
 export async function GET(
   request: NextRequest,
@@ -11,8 +12,7 @@ export async function GET(
 ) {
   try {
     const { filename } = await params;
-    
-    // Security: only allow files that start with "processed_"
+
     if (!filename.startsWith('processed_')) {
       return NextResponse.json(
         { error: 'Invalid filename' },
@@ -20,22 +20,25 @@ export async function GET(
       );
     }
 
-    const filePath = path.join(process.cwd(), 'public', 'processed', filename);
+    const [job] = await db
+      .select()
+      .from(audioJobs)
+      .where(eq(audioJobs.processedFilename, filename));
 
-    if (!existsSync(filePath)) {
+    if (!job || !job.processedData) {
       return NextResponse.json(
         { error: 'File not found' },
         { status: 404 }
       );
     }
 
-    const fileBuffer = await readFile(filePath);
+    const data = job.processedData as unknown as Buffer;
 
-    return new NextResponse(fileBuffer, {
+    return new NextResponse(new Uint8Array(data), {
       headers: {
         'Content-Type': 'audio/mpeg',
         'Content-Disposition': `attachment; filename="${filename}"`,
-        'Content-Length': fileBuffer.length.toString(),
+        'Content-Length': data.length.toString(),
       },
     });
 
