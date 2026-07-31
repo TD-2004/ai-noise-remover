@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { readFile } from 'fs/promises';
-import { existsSync } from 'fs';
+import { db } from '@/db';
+import { audioJobs } from '@/db/schema';
+import { eq } from 'drizzle-orm';
 import path from 'path';
 
 export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
 
 export async function GET(
   request: NextRequest,
@@ -11,27 +13,26 @@ export async function GET(
 ) {
   try {
     const { filename } = await params;
-    
-    // Security: validate filename format (UUID-based)
-    if (!filename.match(/^[a-f0-9-]+\.(mp3|wav|ogg|webm|m4a)$/i)) {
+
+    if (!filename.match(/^[a-f0-9-]+\.(mp3|wav|ogg|webm|m4a|aac|mp4)$/i)) {
       return NextResponse.json(
         { error: 'Invalid filename' },
         { status: 400 }
       );
     }
 
-    const filePath = path.join(process.cwd(), 'public', 'uploads', filename);
+    const [job] = await db
+      .select()
+      .from(audioJobs)
+      .where(eq(audioJobs.originalFilename, filename));
 
-    if (!existsSync(filePath)) {
+    if (!job || !job.originalData) {
       return NextResponse.json(
         { error: 'File not found' },
         { status: 404 }
       );
     }
 
-    const fileBuffer = await readFile(filePath);
-    
-    // Determine MIME type from extension
     const ext = path.extname(filename).toLowerCase();
     const mimeTypes: Record<string, string> = {
       '.mp3': 'audio/mpeg',
@@ -39,14 +40,17 @@ export async function GET(
       '.ogg': 'audio/ogg',
       '.webm': 'audio/webm',
       '.m4a': 'audio/mp4',
+      '.aac': 'audio/aac',
+      '.mp4': 'audio/mp4',
     };
-    
     const contentType = mimeTypes[ext] || 'audio/mpeg';
 
-    return new NextResponse(fileBuffer, {
+    const data = job.originalData as unknown as Buffer;
+
+    return new NextResponse(new Uint8Array(data), {
       headers: {
         'Content-Type': contentType,
-        'Content-Length': fileBuffer.length.toString(),
+        'Content-Length': data.length.toString(),
         'Accept-Ranges': 'bytes',
       },
     });
